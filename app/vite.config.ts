@@ -6,4 +6,7 @@ export default defineConfig({
   // base dir for gh-pages
   base: "typescript-runtime-time-benchmarks/",
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ["@sqlite.org/sqlite-wasm"],
+  },
 });

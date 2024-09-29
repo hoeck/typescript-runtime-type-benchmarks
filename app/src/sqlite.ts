@@ -1,0 +1,57 @@
+import { sqlite3Worker1Promiser, Promiser } from "@sqlite.org/sqlite-wasm";
+
+export class Database {
+  static async create(): Promise<Database> {
+    const promiser = await new Promise<Promiser>((resolve) => {
+      const _promiser = sqlite3Worker1Promiser({
+        onready: () => resolve(_promiser),
+      });
+    });
+
+    await promiser("open", {
+      // or ":memory" ?? opfs does not work as we cannot instruct github to
+      // send the necessary headers and also we don't need the database to be
+      // persistent anyways
+      filename: "",
+    });
+
+    return new Database(promiser);
+  }
+
+  constructor(private _promiser: Promiser) {
+    this._promiser = _promiser;
+  }
+
+  async close() {
+    await this._promiser("close", {});
+  }
+
+  async query(sqlString: string, params?: any) {
+    let rows: Record<string, any>[] = [];
+
+    return new Promise((resolve) => {
+      this._promiser("exec", {
+        sql: sqlString,
+        bind: params,
+
+        // weird, chatty, a single message for each row - seems quite inefficient
+        // maybe its the most basic thing to implement given sqlite internals?
+        callback: (res) => {
+          if (res.rowNumber === null && res.row === undefined) {
+            // terminates the query result
+            // https://sqlite.org/wasm/doc/trunk/api-worker1.md#worker1-methods
+            resolve(rows);
+          } else {
+            // sqlite row numbers seem to be 1-based
+            rows[res.rowNumber - 1] = Object.fromEntries(
+              res.columnNames.map((columnName, columnIndex) => [
+                columnName,
+                res.row[columnIndex],
+              ]),
+            );
+          }
+        },
+      });
+    });
+  }
+}

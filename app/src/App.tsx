@@ -1,35 +1,58 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
+import { Result, ResultDatabase } from "./benchmarkResults";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [resultDb, setResultDb] = useState<ResultDatabase | null>(null);
+  const [results, setResults] = useState<Result[]>([]);
+
+  useEffect(() => {
+    const init = async () => {
+      const db = await ResultDatabase.create();
+
+      await db.fetchResults();
+
+      setResultDb(db);
+    };
+
+    init().catch(console.error);
+
+    return () => {
+      resultDb?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    resultDb
+      ?.findResults()
+      .then((res) => setResults(res))
+      .catch(console.error);
+  }, [resultDb]);
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <h1>sqlite</h1>
+
+      <table>
+        <thead>
+          <tr>
+            <th>benchmark</th>
+            <th>name</th>
+            <th>ops</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((r, i) => (
+            <tr key={i}>
+              <td>{r.benchmark}</td>
+              <td>{r.name}</td>
+              <td>{r.ops}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
