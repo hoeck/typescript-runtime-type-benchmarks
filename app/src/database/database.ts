@@ -1,4 +1,4 @@
-import { Database } from "./sqlite";
+import { Database as SqliteDatabase } from "./sqlite";
 
 const createResultsTable = `
 CREATE TABLE results (
@@ -20,17 +20,21 @@ export interface Result {
   runtimeVersion: string;
 }
 
-export class ResultDatabase {
+export class Database {
   static async create() {
-    const db = await Database.create();
+    const db = await SqliteDatabase.create();
 
     await db.query(createResultsTable);
 
-    return new ResultDatabase(db);
+    return new Database(db);
   }
 
-  constructor(private _db: Database) {
+  // timestamp of last update
+  private _lastUpdate: number;
+
+  constructor(private _db: SqliteDatabase) {
     this._db = _db;
+    this._lastUpdate = 0;
   }
 
   private async _insertResults(results: Result[]) {
@@ -52,11 +56,17 @@ export class ResultDatabase {
       );
     });
 
-    return Promise.all(all);
+    await Promise.all(all);
+
+    this._lastUpdate = Date.now();
   }
 
   async close() {
     await this._db.close();
+  }
+
+  getLastUpdateTimestamp(): number {
+    return this._lastUpdate;
   }
 
   async fetchResults() {
