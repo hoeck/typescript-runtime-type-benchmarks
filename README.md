@@ -96,10 +96,17 @@ const res = isMyDataValid(data)
 
 ## Local Development
 
-* `npm run start` - run benchmarks for all modules
-* `npm run start run zod myzod valita` - run benchmarks only for a few selected modules
-* `npm run docs:serve` - result viewer
-* `npm run test` - run tests on all modules
+### Benchmarks
+
+- `npm run start` - run benchmarks for all modules
+- `npm run start run zod myzod valita` - run benchmarks only for a few selected modules
+- `npm run test` - run tests on all modules
+
+### Benchmark Viewer App
+
+1. `cd app`
+2. `npm install`
+3. `npm dev`
 
 ## Adding a new node version
 
