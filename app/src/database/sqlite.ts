@@ -29,7 +29,7 @@ export class Database {
   async query(sqlString: string, params?: any) {
     let rows: Record<string, any>[] = [];
 
-    return new Promise((resolve) => {
+    return new Promise<typeof rows>((resolve) => {
       this._promiser("exec", {
         sql: sqlString,
         bind: params,
