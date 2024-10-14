@@ -1,15 +1,5 @@
 import { Database as SqliteDatabase } from "./sqlite";
-
-const createResultsTable = `
-CREATE TABLE results (
-  benchmark TEXT NOT NULL,
-  name TEXT NOT NULL,
-  ops INT NOT NULL,
-  margin REAL NOT NULL,
-  runtime TEXT NOT NULL,
-  runtime_version TEXT NOT NULL
-) STRICT
-`;
+import { schema } from "./schema";
 
 export interface Result {
   benchmark: string;
@@ -20,80 +10,234 @@ export interface Result {
   runtimeVersion: string;
 }
 
+// colors taken from https://colorbrewer2.org/?type=qualitative&scheme=Set3&n=12
+export const COLORS = [
+  "#8dd3c7",
+  // '#ffffb3', not this one .. looks too bright to me
+  "#bebada",
+  "#fb8072",
+  "#80b1d3",
+  "#fdb462",
+  "#b3de69",
+  "#fccde5",
+  "#d9d9d9",
+  "#bc80bd",
+  "#ccebc5",
+  "#ffed6f",
+];
+
+// create a stable color list
+export const BENCHMARKS = [
+  { name: "parseSafe", label: "Safe Parsing", color: COLORS[0], order: "0" },
+  {
+    name: "parseStrict",
+    label: "Strict Parsing",
+    color: COLORS[1],
+    order: "1",
+  },
+  {
+    name: "assertLoose",
+    label: "Loose Assertion",
+    color: COLORS[2],
+    order: "2",
+  },
+  {
+    name: "assertStrict",
+    label: "Strict Assertion",
+    color: COLORS[3],
+    order: "3",
+  },
+];
+
 export class Database {
   static async create() {
     const db = await SqliteDatabase.create();
 
-    await db.query(createResultsTable);
+    await db.query(schema);
 
     return new Database(db);
   }
 
   // timestamp of last update
-  private _lastUpdate: number;
+  private _updateCallbacks: ((timestamp: number) => void)[] = [];
 
   constructor(private _db: SqliteDatabase) {
     this._db = _db;
-    this._lastUpdate = 0;
+  }
+
+  private _notifyUpdateCallbacks() {
+    const ts = Date.now();
+
+    this._updateCallbacks.forEach((cb) => {
+      cb(ts);
+    });
   }
 
   private async _insertResults(results: Result[]) {
-    const all: Promise<unknown>[] = [];
-
-    results.forEach((r) => {
-      all.push(
-        this._db.query(
-          "INSERT INTO results VALUES (:benchmark, :name, :ops, :margin, :runtime, :runtimeVersion)",
-          {
-            ":benchmark": r.benchmark,
-            ":name": r.name,
-            ":ops": r.ops,
-            ":margin": r.margin,
-            ":runtime": r.runtime,
-            ":runtimeVersion": r.runtimeVersion,
-          },
-        ),
+    for (const r of results) {
+      // runtime upsert
+      await this._db.query(
+        "INSERT OR IGNORE INTO runtimes (name, version) VALUES (:name, :version)",
+        {
+          ":name": r.runtime,
+          ":version": r.runtimeVersion,
+        },
       );
-    });
+      const [{ id: runtimeId }] = await this._db.query(
+        "SELECT id FROM runtimes WHERE name = :name AND version = :version",
+        {
+          ":name": r.runtime,
+          ":version": r.runtimeVersion,
+        },
+      );
 
-    await Promise.all(all);
+      // benchmark upsert
+      await this._db.query(
+        "INSERT OR IGNORE INTO benchmarks (name) VALUES (:name)",
+        {
+          ":name": r.benchmark,
+        },
+      );
+      const [{ id: benchmarkId }] = await this._db.query(
+        "SELECT id FROM benchmarks WHERE name = :name",
+        {
+          ":name": r.benchmark,
+        },
+      );
 
-    this._lastUpdate = Date.now();
+      // module upsert
+      await this._db.query(
+        "INSERT OR IGNORE INTO modules (name) VALUES (:name)",
+        {
+          ":name": r.name,
+        },
+      );
+      const [{ id: moduleId }] = await this._db.query(
+        "SELECT id FROM modules WHERE name = :name",
+        {
+          ":name": r.name,
+        },
+      );
+
+      // result
+      await this._db.query(
+        "INSERT INTO results " +
+          "  (runtime_id, benchmark_id, module_id, ops, margin) " +
+          "VALUES " +
+          "  (:runtimeId, :benchmarkId, :moduleId, :ops, :margin)",
+        {
+          ":runtimeId": runtimeId,
+          ":benchmarkId": benchmarkId,
+          ":moduleId": moduleId,
+          ":ops": r.ops,
+          ":margin": r.margin,
+        },
+      );
+    }
+
+    this._notifyUpdateCallbacks();
   }
 
   async close() {
     await this._db.close();
   }
 
-  getLastUpdateTimestamp(): number {
-    return this._lastUpdate;
+  addUpdateCallback(handler: (timestamp: number) => void) {
+    return this._updateCallbacks.push(handler);
+  }
+
+  removeUpdateCallback(handler: (timestamp: number) => void) {
+    return (this._updateCallbacks = this._updateCallbacks.filter(
+      (h) => h !== handler,
+    ));
   }
 
   async fetchResults() {
     const data = await import("./exampleData");
 
-    this._insertResults(data.results);
+    await this._insertResults(data.results);
+  }
+
+  async findBenchmarks(): Promise<{
+    id: number;
+    name: string;
+    selected: 0 | 1;
+  }> {
+    return (await this._db.query(
+      "SELECT id, name, selected FROM benchmarks",
+    )) as any;
+  }
+
+  async findRuntimes(): Promise<{
+    id: number;
+    name: string;
+    version: string;
+    selected: 0 | 1;
+  }> {
+    return (await this._db.query(
+      "SELECT id, name, version, selected FROM runtimes",
+    )) as any;
+  }
+
+  async findSortedModuleNames(): Promise<string[]> {
+    return (
+      await this._db.query("SELECT name FROM modules ORDER BY name ASC")
+    ).map((row) => row.name);
+  }
+
+  async getSelectedRuntimeCount(): Promise<number> {
+    return (
+      await this._db.query(
+        "SELECT count(*) AS cnt FROM runtimes WHERE selected",
+      )
+    )[0].cnt;
+  }
+
+  async setBenchmarkSelected(
+    benchmarkId: number,
+    selected: boolean,
+  ): Promise<void> {
+    await this._db.query(
+      "UPDATE benchmarks SET selected = :selected WHERE id = :benchmarkId ORDER BY name ASC",
+      {
+        ":benchmarkId": benchmarkId,
+        ":selected": selected ? 0 : 1,
+      },
+    );
+  }
+
+  async setRuntimeSelected(
+    runtimeId: number,
+    selected: boolean,
+  ): Promise<void> {
+    await this._db.query(
+      "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId ORDER BY name ASC, version ASC",
+      {
+        ":runtimeId": runtimeId,
+        ":selected": selected ? 0 : 1,
+      },
+    );
   }
 
   async findResults(): Promise<Result[]> {
-    const res = await this._db.query(
-      "SELECT " +
-        "  benchmark," +
-        "  name," +
-        "  ops," +
-        "  margin," +
-        "  runtime," +
-        '  runtime_version as "runtimeVersion" ' +
-        "FROM " +
-        "  results " +
-        "WHERE " +
-        "  benchmark IN (:benchmark1, :benchmark2) " +
-        "ORDER BY " +
-        "  benchmark ASC," +
-        "  ops DESC," +
-        "  name ASC",
-      { ":benchmark1": "assertStrict", ":benchmark2": "assertLoose" },
-    );
+    const res = await this._db.query(`
+      SELECT
+        m.name AS name,
+        r.name AS runtime,
+        r.version AS runtimeVersion,
+        b.name AS benchmark,
+        COALESCE(rs.ops, 0) AS ops
+      FROM modules m
+      CROSS JOIN runtimes r
+      CROSS JOIN benchmarks b
+      LEFT JOIN results rs ON (rs.benchmark_id = b.id AND rs.runtime_id = r.id AND rs.module_id = m.id)
+      WHERE r.selected AND b.selected
+      ORDER BY
+        name ASC,
+        benchmark ASC,
+        runtime ASC,
+        runtimeVersion ASC
+    `);
 
     return res as Result[];
   }

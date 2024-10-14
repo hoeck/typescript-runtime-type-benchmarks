@@ -7,7 +7,20 @@ export function useDatabase<T>(
   dependencies?: readonly unknown[],
 ): T | null {
   const [result, setResult] = useState<T | null>(null);
+  const [timestamp, setTimestamp] = useState<number>(0);
   const db = useContext(DatabaseContext);
+
+  useEffect(() => {
+    if (!db) {
+      return;
+    }
+
+    db.addUpdateCallback(setTimestamp);
+
+    return () => {
+      db.removeUpdateCallback(setTimestamp);
+    };
+  }, [db]);
 
   useEffect(() => {
     if (!db) {
@@ -20,7 +33,7 @@ export function useDatabase<T>(
         setResult(null);
         console.error(err);
       });
-  }, [db?.getLastUpdateTimestamp(), ...(dependencies ? dependencies : [])]);
+  }, [db, timestamp, ...(dependencies || [])]);
 
   return result;
 }

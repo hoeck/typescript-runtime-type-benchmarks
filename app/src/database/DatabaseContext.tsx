@@ -13,7 +13,9 @@ export function DatabaseContextProvider(props: PropsWithChildren) {
 
     Database.create()
       .then(async (conn) => {
-        await conn.fetchResults();
+        // fetch results lazily
+        conn.fetchResults().catch(console.error);
+
         setDb(conn);
       })
       .catch(console.error);
