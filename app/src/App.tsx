@@ -9,28 +9,24 @@ function ResultsTable() {
   });
 
   return (
-    <>
-      <h1>sqlite</h1>
-
-      <table>
-        <thead>
-          <tr>
-            <th>benchmark</th>
-            <th>name</th>
-            <th>ops</th>
+    <table>
+      <thead>
+        <tr>
+          <th>benchmark</th>
+          <th>name</th>
+          <th>ops</th>
+        </tr>
+      </thead>
+      <tbody>
+        {results?.map((r, i) => (
+          <tr key={i}>
+            <td>{r.benchmark}</td>
+            <td>{r.name}</td>
+            <td>{r.ops}</td>
           </tr>
-        </thead>
-        <tbody>
-          {results?.map((r, i) => (
-            <tr key={i}>
-              <td>{r.benchmark}</td>
-              <td>{r.name}</td>
-              <td>{r.ops}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -47,6 +43,8 @@ function App() {
 
           <AppShell.Main pt={`calc(${rem(60)} + var(--mantine-spacing-md))`}>
             <Graph />
+            <h1>Results</h1>
+            <ResultsTable />
           </AppShell.Main>
         </AppShell>
       </MantineProvider>
