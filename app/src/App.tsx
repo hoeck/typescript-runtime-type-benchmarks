@@ -1,5 +1,7 @@
 import { AppShell, Group, MantineProvider, rem } from "@mantine/core";
+import "@mantine/core/styles.css";
 import "./App.css";
+import { Filter } from "./components/Filter";
 import { Graph } from "./components/Graph";
 import { DatabaseContextProvider, useDatabase } from "./database";
 
@@ -42,6 +44,7 @@ function App() {
           </AppShell.Header>
 
           <AppShell.Main pt={`calc(${rem(60)} + var(--mantine-spacing-md))`}>
+            <Filter />
             <Graph />
             <h1>Results</h1>
             <ResultsTable />

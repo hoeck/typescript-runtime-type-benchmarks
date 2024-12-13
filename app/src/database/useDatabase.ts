@@ -2,6 +2,8 @@ import { useContext, useEffect, useState } from "react";
 import { DatabaseContext } from "./DatabaseContext";
 import { Database } from "./database";
 
+// TODO: check https://react.dev/reference/react/useSyncExternalStore
+// const stuff = useDatabase("fetchStuff")
 export function useDatabase<T>(
   callback: (db: Database) => Promise<T>,
   dependencies?: readonly unknown[],
@@ -22,18 +24,24 @@ export function useDatabase<T>(
     };
   }, [db]);
 
-  useEffect(() => {
-    if (!db) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (!db) {
+        return;
+      }
 
-    callback(db)
-      .then((r) => setResult(r))
-      .catch((err) => {
-        setResult(null);
-        console.error(err);
-      });
-  }, [db, timestamp, ...(dependencies || [])]);
+      callback(db)
+        .then((r) => {
+          setResult(r);
+        })
+        .catch((err: unknown) => {
+          setResult(null);
+          console.error(err);
+        });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [db, timestamp, ...(dependencies ?? [])],
+  );
 
   return result;
 }

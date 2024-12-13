@@ -1,5 +1,8 @@
 import { sqlite3Worker1Promiser, Promiser } from "@sqlite.org/sqlite-wasm";
 
+// sqlite wrapper is only barely typed so I need to use lots of anys
+/* eslint-disable */
+
 export class Database {
   static async create(): Promise<Database> {
     const promiser = await new Promise<Promiser>((resolve) => {
@@ -29,7 +32,7 @@ export class Database {
   async query(sqlString: string, params?: any) {
     let rows: Record<string, any>[] = [];
 
-    return new Promise<typeof rows>((resolve) => {
+    return new Promise<typeof rows>((resolve, reject) => {
       this._promiser("exec", {
         sql: sqlString,
         bind: params,
@@ -51,6 +54,43 @@ export class Database {
             );
           }
         },
+      }).catch((err: any) => {
+        if (
+          !err ||
+          typeof err !== "object" ||
+          err.type !== "error" ||
+          typeof err.dbId !== "string" ||
+          typeof err.result?.message !== "string" ||
+          err.result?.errorClass !== "SQLite3Error"
+        ) {
+          // not an sqlite error
+          const wrappedError: any = new Error(
+            "Error while executing query " +
+              JSON.stringify(sqlString) +
+              ":" +
+              err?.message,
+          );
+
+          wrappedError.query = sqlString;
+          wrappedError.queryParams = params;
+          wrappedError.sqliteError = err;
+
+          reject(wrappedError);
+        }
+
+        // sqlite error
+        const wrappedError: any = new Error(
+          "Sqlite Error while executing query " +
+            JSON.stringify(sqlString) +
+            ":" +
+            err.result.message,
+        );
+
+        wrappedError.query = sqlString;
+        wrappedError.queryParams = params;
+        wrappedError.sqliteError = err;
+
+        reject(wrappedError);
       });
     });
   }

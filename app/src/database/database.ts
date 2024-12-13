@@ -1,3 +1,9 @@
+// Without using runtypes, an orm or query-generator, we need to use any on
+// the db results and trust our SQL-skills.
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Database as SqliteDatabase } from "./sqlite";
 import { schema } from "./schema";
 
@@ -158,11 +164,13 @@ export class Database {
     await this._insertResults(data.results);
   }
 
-  async findBenchmarks(): Promise<{
-    id: number;
-    name: string;
-    selected: 0 | 1;
-  }> {
+  async findBenchmarks(): Promise<
+    {
+      id: number;
+      name: string;
+      selected: 0 | 1;
+    }[]
+  > {
     return (await this._db.query(
       "SELECT id, name, selected FROM benchmarks",
     )) as any;
@@ -198,12 +206,13 @@ export class Database {
     selected: boolean,
   ): Promise<void> {
     await this._db.query(
-      "UPDATE benchmarks SET selected = :selected WHERE id = :benchmarkId ORDER BY name ASC",
+      "UPDATE benchmarks SET selected = :selected WHERE id = :benchmarkId",
       {
         ":benchmarkId": benchmarkId,
         ":selected": selected ? 0 : 1,
       },
     );
+    this._notifyUpdateCallbacks();
   }
 
   async setRuntimeSelected(
@@ -211,12 +220,13 @@ export class Database {
     selected: boolean,
   ): Promise<void> {
     await this._db.query(
-      "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId ORDER BY name ASC, version ASC",
+      "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId",
       {
         ":runtimeId": runtimeId,
         ":selected": selected ? 0 : 1,
       },
     );
+    this._notifyUpdateCallbacks();
   }
 
   async findResults(): Promise<Result[]> {

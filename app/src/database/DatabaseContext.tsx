@@ -8,22 +8,27 @@ export function DatabaseContextProvider(props: PropsWithChildren) {
 
   useEffect(() => {
     if (db) {
-      return;
+      return () => {
+        void db.close();
+      };
     }
 
     Database.create()
-      .then(async (conn) => {
+      .then((conn) => {
         // fetch results lazily
-        conn.fetchResults().catch(console.error);
+        // TODO: move this init code outside of the db contextprovider
+        conn.fetchResults().catch((e: unknown) => {
+          console.error(e);
+        });
 
         setDb(conn);
       })
-      .catch(console.error);
+      .catch((e: unknown) => {
+        console.error(e);
+      });
 
-    return () => {
-      db!?.close();
-    };
-  });
+    return;
+  }, [db]);
 
   return (
     <DatabaseContext.Provider value={db}>

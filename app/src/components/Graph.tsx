@@ -111,6 +111,10 @@ export function Graph() {
   const [svg, setSvg] = useState<string | null>(null);
 
   useDatabase(async (db) => {
+    // delay the (expensive) graph rendering for 1 frame in order to not block
+    // updating other parts of the ui
+    await new Promise((resolve) => setTimeout(resolve, 16));
+
     setSvg(
       await graph({
         colors: COLORS,
