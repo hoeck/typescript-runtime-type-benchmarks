@@ -120,11 +120,11 @@ const res = isMyDataValid(data)
 * `npm run test` - run build process and tests for all modules
 * `npm run test:build` - run build process for all modules
 
-#### Docs
+### Benchmark Viewer App
 
-* `npm run docs:serve` - result viewer
-* `npm run docs:build` - build docs
-* `npm run docs:watch` - watch docs for changes and rebuild
+1. `cd app`
+2. `npm install`
+3. `npm dev`
 
 #### Linting
 
