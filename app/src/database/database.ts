@@ -65,18 +65,32 @@ export class Database {
   }
 
   // timestamp of last update
-  private _updateCallbacks: ((timestamp: number) => void)[] = [];
+  private _timestamp = 0;
+  private _listeners: (() => void)[] = [];
 
   constructor(private _db: SqliteDatabase) {
     this._db = _db;
   }
 
-  private _notifyUpdateCallbacks() {
-    const ts = Date.now();
-
-    this._updateCallbacks.forEach((cb) => {
-      cb(ts);
+  // store methods
+  private _notifyListeners() {
+    this._timestamp = Date.now();
+    this._listeners.forEach((cb) => {
+      cb();
     });
+  }
+
+  subscribe(listener: () => void) {
+    this._listeners = [...this._listeners, listener];
+
+    // usubscribe
+    return () => {
+      this._listeners = this._listeners.filter((l) => l === listener);
+    };
+  }
+
+  getSnapshot(method: keyof Database) {
+    this[method]();
   }
 
   private async _insertResults(results: Result[]) {
@@ -141,7 +155,7 @@ export class Database {
       );
     }
 
-    this._notifyUpdateCallbacks();
+    this._notifyListeners();
   }
 
   async close() {
@@ -149,14 +163,14 @@ export class Database {
   }
 
   addUpdateCallback(handler: (timestamp: number) => void) {
-    return this._updateCallbacks.push(handler);
+    return this._listeners.push(handler);
   }
 
   removeUpdateCallback(handler: (timestamp: number) => void) {
-    return (this._updateCallbacks = this._updateCallbacks.filter(
-      (h) => h !== handler,
-    ));
+    return (this._listeners = this._listeners.filter((h) => h !== handler));
   }
+
+  listen() {}
 
   async fetchResults() {
     const data = await import("./exampleData");
@@ -230,6 +244,8 @@ export class Database {
   }
 
   async findResults(): Promise<Result[]> {
+    console.log("findResults");
+
     const res = await this._db.query(`
       SELECT
         m.name AS name,
@@ -252,3 +268,70 @@ export class Database {
     return res as Result[];
   }
 }
+
+/*
+
+# ASSISTED CHANGE DATA CAPTURE IDEA
+
+## SELECT
+
+- for selects:
+  - find all tables via `select name from pragma_table_list`;
+  - check which tables are mentioned in the select using a simple string-match (should be good enough)
+    - if you have tables named after columns?? maybe a bad idea, contrary: `users` table and join table `users_products` :/
+    - alternative: find table with proper delimiters: [schema.]table ...
+
+- proper api alternative:
+
+1. use sqlite3_column_table_name on the prepared statement to get all used columns and tables
+2. use sqlite3_update_hook to register refresh callbacks for that select
+
+## UPDATES
+
+just write them, selects take care to refresh themselves
+
+*/
+
+// dbStore.mutationCommand(
+//   "setRuntimeSelected",
+//   async (db: SqliteDatabase, runtimeId: number, selected: boolean) => {
+//     await db.query(
+//       "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId",
+//       {
+//         ":runtimeId": runtimeId,
+//         ":selected": selected ? 0 : 1,
+//       },
+//     );
+//   },
+// );
+//
+// const commands1 = createCommand(
+//   "setRuntimeSelected",
+//   async (db: SqliteDatabase, runtimeId: number, selected: boolean) => {
+//     await db.query(
+//       "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId",
+//       {
+//         ":runtimeId": runtimeId,
+//         ":selected": selected ? 0 : 1,
+//       },
+//     );
+//   },
+// );
+//
+// const commands2 = {
+//   setRuntimeSelected: async (
+//     db: SqliteDatabase,
+//     runtimeId: number,
+//     selected: boolean,
+//   ) => {
+//     await db.query(
+//       "UPDATE runtimes SET selected = :selected WHERE id = :runtimeId",
+//       {
+//         ":runtimeId": runtimeId,
+//         ":selected": selected ? 0 : 1,
+//       },
+//     );
+//   },
+// };
+//
+// dbStore.addCommands(commands2);

@@ -4,6 +4,7 @@ import "./App.css";
 import { Filter } from "./components/Filter";
 import { Graph } from "./components/Graph";
 import { DatabaseContextProvider, useDatabase } from "./database";
+import "./database/sqlJsDatabase";
 
 function ResultsTable() {
   const results = useDatabase((db) => {
@@ -33,6 +34,10 @@ function ResultsTable() {
 }
 
 function App() {
+  if (1) {
+    return <h1>see console</h1>;
+  }
+
   return (
     <DatabaseContextProvider>
       <MantineProvider>

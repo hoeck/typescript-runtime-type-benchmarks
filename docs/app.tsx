@@ -233,6 +233,8 @@ async function graph({
 
   new Set(sortedValues.map(b => b.name)).forEach(n => sortedNames.push(n));
 
+  console.log({ colorScaleRange, sortedNames, valuesNodejs, valuesBun });
+
   const vegaSpec = vegaLite.compile({
     data: {
       values: [...valuesNodejs, ...valuesBun],

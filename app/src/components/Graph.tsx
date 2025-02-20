@@ -115,6 +115,8 @@ export function Graph() {
     // updating other parts of the ui
     await new Promise((resolve) => setTimeout(resolve, 16));
 
+    // TODO: compute graph in worker thread as (together with sqlite queries)
+    // blocks the main thread quite a bit
     setSvg(
       await graph({
         colors: COLORS,

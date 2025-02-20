@@ -260,6 +260,7 @@ define("app", ["require", "exports", "preact", "vega", "vega-lite"], function (r
                         }
                         sortedNames = [];
                         new Set(sortedValues.map(function (b) { return b.name; })).forEach(function (n) { return sortedNames.push(n); });
+                        console.log({ colorScaleRange: colorScaleRange, sortedNames: sortedNames, valuesNodejs: valuesNodejs, valuesBun: valuesBun });
                         vegaSpec = vegaLite.compile({
                             data: {
                                 values: __spreadArray(__spreadArray([], valuesNodejs, true), valuesBun, true),
@@ -352,7 +353,6 @@ define("app", ["require", "exports", "preact", "vega", "vega-lite"], function (r
                             if (this.prevProps === this.props) {
                                 return [2 /*return*/];
                             }
-                            console.log(this.props);
                             this.prevProps = this.props;
                             _a = this.setState;
                             _b = {};
@@ -422,14 +422,12 @@ define("app", ["require", "exports", "preact", "vega", "vega-lite"], function (r
             return _this;
         }
         App.prototype.getNodeJsVersions = function () {
-            console.log('this.state.valuesNodeJs', this.state.valuesNodeJs);
             var versionsSet = new Set(this.state.valuesNodeJs
                 .map(function (v) { return v.runtimeVersion; })
                 .filter(function (v) { return v !== undefined; })
                 .sort(function (a, b) { return (a < b ? 1 : -1); }));
             var res = [];
             versionsSet.forEach(function (v) { return res.push(v); });
-            console.log('res', res);
             return res;
         };
         App.prototype.getBunVersions = function () {
@@ -463,7 +461,6 @@ define("app", ["require", "exports", "preact", "vega", "vega-lite"], function (r
                 fetch("results/bun-".concat(v, ".json"))
                     .then(function (response) { return response.json(); })
                     .then(function (data) {
-                    console.log(data.results);
                     _this.setState(function (state) { return (__assign(__assign({}, state), { 
                         // select the first node versions benchmark automatically
                         selectedBunVersions: state.selectedBunVersions, valuesBun: __spreadArray(__spreadArray([], state.valuesBun, true), normalizePartialValues(data.results), true) })); });
